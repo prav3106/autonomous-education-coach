@@ -37,7 +37,7 @@ const AdminView = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="glass-card p-6 !rounded-2xl border-b-4 border-b-indigo-500">
                     <div className="text-sm font-bold text-slate-500 uppercase">Active Students</div>
                     <div className="text-4xl font-black text-white mt-2">{data?.total_students || 0}</div>
@@ -45,16 +45,6 @@ const AdminView = () => {
                 <div className="glass-card p-6 !rounded-2xl border-b-4 border-b-emerald-500">
                     <div className="text-sm font-bold text-slate-500 uppercase">Avg. Accuracy</div>
                     <div className="text-4xl font-black text-white mt-2">{data?.average_score?.toFixed(1) || 0}%</div>
-                </div>
-                <div className="glass-card p-6 !rounded-2xl border-b-4 border-b-amber-500">
-                    <div className="text-sm font-bold text-slate-500 uppercase">Agent Loop Speed</div>
-                    <div className="text-4xl font-black text-white mt-2">0.8s</div>
-                </div>
-                <div className="glass-card p-6 !rounded-2xl border-b-4 border-b-purple-500">
-                    <div className="text-sm font-bold text-slate-500 uppercase">Weak Concepts</div>
-                    <div className="text-sm font-bold text-white mt-2 truncate">
-                        {data?.weakest_topics?.join(", ") || "None identified"}
-                    </div>
                 </div>
             </div>
 
@@ -87,8 +77,11 @@ const AdminView = () => {
                                         <span className="text-[10px] text-slate-500 mt-1 block">{record.confidence}% confidence</span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-md text-xs font-bold ${record.score === 100 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                            {record.score === 100 ? 'CORRECT' : 'INCORRECT'}
+                                        <span className={`px-2 py-1 rounded-md text-xs font-bold ${record.score >= 80 ? 'bg-emerald-500/10 text-emerald-500' :
+                                            record.score >= 50 ? 'bg-yellow-500/10 text-yellow-500' :
+                                                'bg-rose-500/10 text-rose-500'
+                                            }`}>
+                                            {Math.round(record.score)}% Score
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">

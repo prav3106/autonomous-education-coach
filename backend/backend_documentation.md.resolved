@@ -1,0 +1,97 @@
+# Backend Documentation: Autonomous Education Coach
+
+This document provides a comprehensive technical overview of the backend system, explaining the role of each script, core function-level logic, and the integration of FastAPI.
+
+## 🏗️ System Overview
+The backend is a multi-agent orchestrated system designed to provide personalized, adaptive learning experiences. It uses **FastAPI** for its web interface, **SQLAlchemy** for persistence (MySQL), and **Groq (Llama-3.3-70b)** for intelligent decision-making and content generation.
+
+---
+
+## 📂 Directory Structure
+```text
+backend/
+├── agents/             # Core AI logic (Multi-agent system)
+│   ├── head_agent.py      # Orchestrator
+│   ├── analyzer_agent.py  # Diagnostic logic
+│   ├── planner_agent.py   # Strategy selection
+│   ├── teaching_agent.py  # Content generation
+│   ├── evaluator_agent.py # Answer assessment
+│   ├── memory_agent.py    # Database interaction
+│   └── llm_client.py     # Shared LLM interface
+├── agent_logger.py     # In-memory log streaming
+├── database.py         # SQLAlchemy configuration
+├── main.py             # FastAPI entry point & routes
+├── models.py           # Database schemas
+└── requirements.txt    # Dependencies
+```
+
+---
+
+## 🛠️ Script & Function Breakdown
+
+### 1. [main.py](file:///f:/education-agent/backend/main.py) (FastAPI Entry Point)
+Acts as the central router and session manager.
+- **[start_lesson(req: StartRequest)](file:///f:/education-agent/backend/main.py#62-107)**: Initializes a session by calling the `HeadAgent.run_adaptive_loop`. It generates a unique `session_id` and stores session state (MCQs, current index) in memory.
+- **[submit_answer(req: AnswerRequest)](file:///f:/education-agent/backend/main.py#108-146)**: Takes a user's answer and confidence level, calls `HeadAgent.evaluate_answer`, updates session state, and returns feedback.
+- **[end_session(req: EndRequest)](file:///f:/education-agent/backend/main.py#147-178)**: Calculates the final score and average confidence, then uses [MemoryAgent](file:///f:/education-agent/backend/agents/memory_agent.py#8-36) to save the results to the database.
+- **[agent_logs(since: float)](file:///f:/education-agent/backend/main.py#212-218)**: Provides an endpoint for the frontend to poll for real-time agent activity logs.
+
+### 2. [agents/head_agent.py](file:///f:/education-agent/backend/agents/head_agent.py) (The Orchestrator)
+The "brain" that coordinates between specific task agents.
+- **[run_adaptive_loop(...)](file:///f:/education-agent/backend/agents/head_agent.py#19-45)**: 
+    1. Fetches history via [MemoryAgent](file:///f:/education-agent/backend/agents/memory_agent.py#8-36).
+    2. Runs [AnalyzerAgent](file:///f:/education-agent/backend/agents/analyzer_agent.py#8-45) to determine the user's level and predicted confidence.
+    3. Runs [PlannerAgent](file:///f:/education-agent/backend/agents/planner_agent.py#8-38) to pick a teaching strategy.
+    4. Runs [TeachingAgent](file:///f:/education-agent/backend/agents/teaching_agent.py#8-46) to produce the lesson markdown and MCQs.
+- **[evaluate_answer(...)](file:///f:/education-agent/backend/agents/head_agent.py#46-57)**: Directs the [EvaluatorAgent](file:///f:/education-agent/backend/agents/evaluator_agent.py#8-36) to check the user's answer and generate narrative feedback.
+
+### 3. [agents/analyzer_agent.py](file:///f:/education-agent/backend/agents/analyzer_agent.py) (Diagnostic)
+Assesses the student's historical data.
+- **[analyze(student_history)](file:///f:/education-agent/backend/agents/analyzer_agent.py#9-45)**: Uses the LLM to look at past scores and confidence trends. It outputs a categorical level (Beginner/Intermediate/Advanced) and an AI-predicted confidence score.
+
+### 4. [agents/planner_agent.py](file:///f:/education-agent/backend/agents/planner_agent.py) (Strategist)
+Determines *how* to teach the specific topic.
+- **[plan(level, topic, history, confidence)](file:///f:/education-agent/backend/agents/planner_agent.py#9-38)**: Implements a decision matrix (via LLM) to choose strategies like:
+    - **Confidence Booster**: For high-level users with low current confidence.
+    - **Socratic Challenge**: For advanced users to push deeper.
+    - **Step-by-Step Fundamentals**: For beginners.
+
+### 5. [agents/teaching_agent.py](file:///f:/education-agent/backend/agents/teaching_agent.py) (Creator)
+Generates the core educational content.
+- **[teach(topic, strategy)](file:///f:/education-agent/backend/agents/teaching_agent.py#9-46)**: Requests the LLM to generate 400-600 words of structured Markdown (Core Concepts, Technical Mechanics, Real-World Apps) and exactly 5 challenging MCQs tailored to the selected strategy.
+
+### 6. [agents/evaluator_agent.py](file:///f:/education-agent/backend/agents/evaluator_agent.py) (Judge)
+Assesses individual answers.
+- **[evaluate(answer, question, correct_option, confidence)](file:///f:/education-agent/backend/agents/evaluator_agent.py#9-36)**: 
+    - Performs an **Exact Match** check first (robustness).
+    - Uses the LLM to generate feedback. If a student is **highly confident but wrong**, the agent explains the likely misconception.
+
+### 7. [agents/memory_agent.py](file:///f:/education-agent/backend/agents/memory_agent.py) (Persistence)
+- **[save_session(...)](file:///f:/education-agent/backend/agents/memory_agent.py#9-26)**: Commits the final results (score, confidence, strategy) to the `student_history` table.
+- **[get_history(...)](file:///f:/education-agent/backend/agents/memory_agent.py#27-36)**: Queries past performance for a specific `student_id`.
+
+### 8. [agents/llm_client.py](file:///f:/education-agent/backend/agents/llm_client.py) (LLM Interface)
+- Wraps the Groq SDK.
+- Configured for `llama-3.3-70b-versatile`.
+- Includes specialized error handling for common access issues (VPN blocks/Regiona limitations).
+
+---
+
+## ⚡ How FastAPI is Used
+FastAPI is used to turn these agents into a production-ready API:
+1. **Dependency Injection (`Depends(get_db)`)**: Automatically manages database sessions for endpoints.
+2. **Pydantic Models**: Validates incoming request data ([StartRequest](file:///f:/education-agent/backend/main.py#36-40), [AnswerRequest](file:///f:/education-agent/backend/main.py#41-45)).
+3. **CORS Middleware**: Allows the frontend (likely running on a different port) to communicate securely with the backend.
+4. **Asynchronous Potential**: While the LLM calls are currently synchronous, the FastAPI structure allows for easy migration to async for higher throughput.
+5. **Real-time Observability**: The `/agent-logs` endpoint leverages an in-memory `deque` (from [agent_logger.py](file:///f:/education-agent/backend/agent_logger.py)) to stream internal agent "thoughts" to the UI.
+
+---
+
+## 🔄 Step-by-Step Execution Flow
+1. **User requests a topic** (Frontend -> `/start-session`).
+2. **Analyzer** checks past performance in DB.
+3. **Planner** selects a strategy (e.g., "Socratic Challenge").
+4. **Teacher** generates lesson + 5 questions.
+5. **User reads lesson** and answers questions one-by-one (`/answer-question`).
+6. **Evaluator** checks each answer and provides instant feedback/encouragement.
+7. **Session ends** (`/end-session`), and **Memory** saves the final stats to the DB for future personalization.

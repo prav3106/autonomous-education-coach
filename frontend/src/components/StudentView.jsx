@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { startLesson, submitAnswer, getStudentHistory } from "../api";
+import { startLesson, submitAnswer, getStudentHistory, endSession } from "../api";
 import ReactMarkdown from "react-markdown";
 
 const StudentView = () => {
     const [studentId, setStudentId] = useState("");
     const [topic, setTopic] = useState("");
+    const [sessionId, setSessionId] = useState(null);
     const [session, setSession] = useState(null);
     const [userAnswer, setUserAnswer] = useState("");
     const [confidence, setConfidence] = useState(50);
@@ -19,8 +20,8 @@ const StudentView = () => {
         try {
             const res = await startLesson(studentId, topic, confidence);
             if (res.success) {
+                setSessionId(res.session_id);
                 setSession(res.data);
-                fetchHistory();
             }
         } catch (err) {
             alert("Error starting lesson: " + err.message);
@@ -32,18 +33,9 @@ const StudentView = () => {
         if (!userAnswer) return;
         setLoading(true);
         try {
-            const res = await submitAnswer(
-                studentId,
-                topic,
-                session.strategy,
-                userAnswer,
-                session.question,
-                session.correct_option,
-                confidence
-            );
+            const res = await submitAnswer(sessionId, userAnswer, confidence);
             if (res.success) {
                 setFeedback(res.data);
-                fetchHistory();
             }
         } catch (err) {
             alert("Error submitting answer");
@@ -51,17 +43,52 @@ const StudentView = () => {
         setLoading(false);
     };
 
-    const handleNext = async () => {
-        setLoading(true);
+    const handleNext = () => {
         setFeedback(null);
         setUserAnswer("");
+        if (feedback && feedback.has_next) {
+            setSession(prev => ({
+                ...prev,
+                question: feedback.next_question,
+                options: feedback.next_options,
+                correct_option: feedback.next_correct_option
+            }));
+        }
+    };
+
+    const handleEndSession = async () => {
+        setLoading(true);
         try {
+            await endSession(sessionId);
+            setSessionId(null);
+            setSession(null);
+            setFeedback(null);
+            setUserAnswer("");
+            fetchHistory();
+        } catch (err) {
+            alert("Error ending session");
+        }
+        setLoading(false);
+    };
+
+    const handleContinueTopic = async () => {
+        setLoading(true);
+        try {
+            await endSession(sessionId);
+            setSessionId(null);
+            setSession(null);
+            setFeedback(null);
+            setUserAnswer("");
+            fetchHistory();
+
+            // Automatically start a new session with the same topic
             const res = await startLesson(studentId, topic, confidence);
             if (res.success) {
+                setSessionId(res.session_id);
                 setSession(res.data);
             }
         } catch (err) {
-            alert("Error fetching next lesson");
+            alert("Error continuing topic: " + err.message);
         }
         setLoading(false);
     };
@@ -219,12 +246,20 @@ const StudentView = () => {
                                 </div>
                                 <p className="text-lg opacity-80 mb-8">{feedback.explanation}</p>
                                 <div className="flex flex-col sm:flex-row gap-4">
-                                    <button onClick={handleNext} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-4 rounded-xl font-bold transition-all border border-white/10">
-                                        Continue to Next Topic
-                                    </button>
-                                    <button onClick={() => setSession(null)} className="flex-1 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 py-4 rounded-xl font-bold transition-all">
-                                        Finish Session
-                                    </button>
+                                    {feedback.has_next ? (
+                                        <button onClick={handleNext} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-4 rounded-xl font-bold transition-all border border-white/10">
+                                            Continue to Next Question
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button onClick={handleContinueTopic} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-bold transition-all border border-indigo-500">
+                                                Continue Learning This Topic
+                                            </button>
+                                            <button onClick={handleEndSession} className="flex-1 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 py-4 rounded-xl font-bold transition-all">
+                                                Finish Session & View Score
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -244,10 +279,10 @@ const StudentView = () => {
                                 <div className="text-xs font-bold text-slate-500 uppercase">{h.strategy}</div>
                                 <div className="text-lg font-bold text-white truncate">{h.topic}</div>
                                 <div className="flex justify-between items-end">
-                                    <span className={`text-3xl font-black ${h.score === 100 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {h.score === 100 ? 'Correct' : 'Incorrect'}
+                                    <span className={`text-3xl font-black ${h.score >= 80 ? 'text-emerald-400' : h.score >= 50 ? 'text-yellow-400' : 'text-rose-400'}`}>
+                                        {Math.round(h.score)}% Score
                                     </span>
-                                    <span className="text-xs text-slate-500 pb-1">Confidence: {h.confidence}%</span>
+                                    <span className="text-xs text-slate-500 pb-1">Confidence: {Math.round(h.confidence)}%</span>
                                 </div>
                             </div>
                         ))}

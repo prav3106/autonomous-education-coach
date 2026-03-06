@@ -1,18 +1,25 @@
 import json
+import logging
 from .llm_client import call_groq
+import agent_logger
+
+logger = logging.getLogger(__name__)
 
 class AnalyzerAgent:
     def analyze(self, student_history):
-        print("\n" + "="*60)
-        print(" [AGENT 1/5] ANALYZER AGENT: Diagnosing Learner State V2")
-        print("="*60)
+        msg = "\n" + "="*60 + "\n [AGENT 1/5] ANALYZER AGENT: Diagnosing Learner State V2\n" + "="*60
+        logger.info(msg)
+        agent_logger.log_agent("Analyzer", msg)
         
         if not student_history:
-            print(" > Status: First-time learner detected.")
-            print(" > Decision: Assigning 'Beginner' level. Predicted Confidence: 50.0")
+            msg = " > Status: First-time learner detected.\n > Decision: Assigning 'Beginner' level. Predicted Confidence: 50.0"
+            logger.info(msg)
+            agent_logger.log_agent("Analyzer", msg)
             return "Beginner", 50.0
             
-        print(f" > Data Source: Retrieved {len(student_history)} past sessions.")
+        msg = f" > Data Source: Retrieved {len(student_history)} past sessions."
+        logger.info(msg)
+        agent_logger.log_agent("Analyzer", msg)
         
         # New: Deep Analysis including Confidence Prediction
         prompt = (
@@ -26,10 +33,12 @@ class AnalyzerAgent:
             data = json.loads(res)
             level = data.get("level", "Beginner")
             pred_conf = data.get("predicted_confidence", 50.0)
-            print(f" > AI Trend Analysis: {data.get('analysis', 'Evaluated trends.')}")
-            print(f" > Resulting Level: {level.upper()}")
-            print(f" > Predicted Confidence: {pred_conf}%")
+            msg = f" > AI Trend Analysis: {data.get('analysis', 'Evaluated trends.')}\n > Resulting Level: {level.upper()}\n > Predicted Confidence: {pred_conf}%"
+            logger.info(msg)
+            agent_logger.log_agent("Analyzer", msg)
             return level, float(pred_conf)
         except (json.JSONDecodeError, ValueError):
-            print(" !! Warning: Analytics engine failed. Using fallbacks.")
+            msg = " !! Warning: Analytics engine failed. Using fallbacks."
+            logger.info(msg)
+            agent_logger.log_agent("Analyzer", msg)
             return "Beginner", 50.0

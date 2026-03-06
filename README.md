@@ -1,5 +1,3 @@
-# autonomous-education-coach
-
 # Autonomous Education Coach
 
 A modular multi-agent system powered by Groq API and Local MySQL.

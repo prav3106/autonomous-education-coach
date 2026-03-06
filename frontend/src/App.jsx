@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import StudentView from './components/StudentView'
 import AdminView from './components/AdminView'
+import AgentTerminal from './components/AgentTerminal'
 import './index.css'
 
 import Footer from './components/Footer'
 
 function App() {
   const [activeTab, setActiveTab] = useState('student');
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-dark text-slate-100 font-sans selection:bg-indigo-500/30 flex flex-col">
+    <div className="min-h-screen bg-dark text-slate-100 font-sans selection:bg-indigo-500/30 flex flex-col relative">
       <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
@@ -52,6 +54,18 @@ function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow">
         {activeTab === 'student' ? <StudentView /> : <AdminView />}
       </main>
+
+      {/* Floating Toggle Button */}
+      <button
+        onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all z-40 flex items-center justify-center ${isTerminalOpen ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-emerald-600 text-emerald-50 hover:bg-emerald-500 shadow-emerald-500/30'
+          }`}
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M4 15V9a2 2 0 012-2h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2z" /></svg>
+      </button>
+
+      {/* Embedded Terminal */}
+      <AgentTerminal isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
 
       <Footer />
     </div>

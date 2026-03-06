@@ -1,8 +1,12 @@
+import logging
 from .analyzer_agent import AnalyzerAgent
 from .planner_agent import PlannerAgent
 from .teaching_agent import TeachingAgent
 from .evaluator_agent import EvaluatorAgent
 from .memory_agent import MemoryAgent
+import agent_logger
+
+logger = logging.getLogger(__name__)
 
 class HeadAgent:
     def __init__(self):
@@ -28,27 +32,22 @@ class HeadAgent:
         # 4. Generate content
         lesson_data = self.teacher.teach(topic, strategy)
         
-        print("\n" + "#"*60)
-        print(" TOTAL SYSTEM SYNC COMPLETE: ADAPTIVE LOOP READY")
-        print("#"*60 + "\n")
+        msg = "\n" + "#"*60 + "\n TOTAL SYSTEM SYNC COMPLETE: ADAPTIVE LOOP READY\n" + "#"*60 + "\n"
+        logger.info(msg)
+        agent_logger.log_agent("System", msg)
         
         return {
             "level": level,
             "strategy": strategy,
             "lesson": lesson_data.get("lesson", ""),
-            "question": lesson_data.get("mcq_question", ""),
-            "options": lesson_data.get("options", []),
-            "correct_option": lesson_data.get("correct_option", "")
+            "mcqs": lesson_data.get("mcqs", [])
         }
         
-    def evaluate_answer(self, db_session, student_id, topic, strategy, user_answer, question, correct_option, confidence):
+    def evaluate_answer(self, user_answer, question, correct_option, confidence):
         # 5. Evaluate
         is_correct, feedback = self.evaluator.evaluate(user_answer, question, correct_option, confidence)
         
         score = 100.0 if is_correct else 0.0
-        
-        # 6. Save to Memory
-        self.memory.save_session(db_session, student_id, topic, score, confidence, strategy)
         
         return {
             "correct": is_correct,

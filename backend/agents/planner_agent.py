@@ -1,13 +1,15 @@
 import json
+import logging
 from .llm_client import call_groq
+import agent_logger
+
+logger = logging.getLogger(__name__)
 
 class PlannerAgent:
     def plan(self, level, topic, past_performance, confidence):
-        print("\n" + "="*60)
-        print(" [AGENT 2/5] PLANNER AGENT: Formulating Teaching Strategy")
-        print("="*60)
-        print(f" > Input Level: {level}")
-        print(f" > Student Confidence: {confidence}%")
+        msg = f"\n" + "="*60 + "\n [AGENT 2/5] PLANNER AGENT: Formulating Teaching Strategy\n" + "="*60 + f"\n > Input Level: {level}\n > Student Confidence: {confidence}%"
+        logger.info(msg)
+        agent_logger.log_agent("Planner", msg)
         
         prompt = (
             f"Student Level: {level}. Topic: {topic}. Past History: {past_performance}. Confidence Level: {confidence}%.\n"
@@ -24,9 +26,12 @@ class PlannerAgent:
         try:
             data = json.loads(res)
             strategy = data.get("strategy", "Standard Adaptive")
-            print(f" > AI Logic: {data.get('agent_note', 'Determined based on matrix.')}")
-            print(f" > Selected Strategy: {strategy.upper()}")
+            msg = f" > AI Logic: {data.get('agent_note', 'Determined based on matrix.')}\n > Selected Strategy: {strategy.upper()}"
+            logger.info(msg)
+            agent_logger.log_agent("Planner", msg)
             return strategy
         except json.JSONDecodeError:
-            print(" !! Warning: Strategy engine failed. Using Standard.")
+            msg = " !! Warning: Strategy engine failed. Using Standard."
+            logger.info(msg)
+            agent_logger.log_agent("Planner", msg)
             return "Standard Adaptive"
